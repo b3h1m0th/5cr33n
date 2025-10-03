@@ -40,7 +40,7 @@ jobs:
           }
           Write-Host "Using getscreen.exe at $exePath"
           # Register with account
-          Start-Process -FilePath $exePath -ArgumentList "-install -register deep.gratuity551@passinbox.com" -Wait
+          Start-Process -FilePath $exePath -ArgumentList "-install -register site-cat@proton.me" -Wait
 
       - name: Output getscreen session link
         shell: pwsh
