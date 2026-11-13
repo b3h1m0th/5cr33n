@@ -1,0 +1,81 @@
+name: w1n5cr33n2.0
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rdp:
+    runs-on: windows-latest
+    timeout-minutes: 250 # 4 hours, 10 minutes buffer
+
+    steps:
+      - name: Enable Windows Audio Service and Hyper-V Audio Registry
+        shell: pwsh
+        run: |
+          # Start Windows Audio service
+          Start-Service -Name "AudioSrv"
+
+          # Set registry for audio in RDP/Hyper-V sessions
+          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" -Name "fDisableAudioCapture" -Value 0
+          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" -Name "fDisableAudio" -Value 0
+
+          # Ensure audio endpoint builder also running
+          Start-Service -Name "AudioEndpointBuilder"
+
+      - name: Download getscreen.me client
+        run: |
+          Invoke-WebRequest -Uri "https://getscreen.me/download/getscreen.msi" -OutFile "getscreen.msi"
+
+      - name: Install getscreen.me client
+        run: |
+          Start-Process msiexec.exe -Wait -ArgumentList '/i getscreen.msi /qn'
+
+      - name: Register getscreen.me client with account
+        shell: pwsh
+        run: |
+          $exePath = "C:\Program Files\Getscreen.me\getscreen.exe"
+          if (-not (Test-Path $exePath)) {
+            Write-Error "getscreen.exe not found after installation at $exePath!"
+            exit 1
+          }
+          Write-Host "Using getscreen.exe at $exePath"
+          # Register with account
+          Start-Process -FilePath $exePath -ArgumentList "-install -register ${{ secrets.EMAIL }}" -Wait
+
+      - name: Output getscreen session link
+        shell: pwsh
+        run: |
+          $exePath = "C:\Program Files\Getscreen.me\getscreen.exe"
+          if (-not (Test-Path $exePath)) {
+            Write-Error "getscreen.exe not found after installation at $exePath!"
+            exit 1
+          }
+          # Start getscreen session and output link
+          Start-Process -FilePath $exePath -ArgumentList "--cli start" -NoNewWindow -RedirectStandardOutput "link.txt" -PassThru
+          Start-Sleep -Seconds 10
+          $link = Get-Content "link.txt" | Select-String -Pattern "https://getscreen.me" | Select-Object -First 1
+          Write-Host "GetScreen access link (valid while workflow runs):"
+          Write-Host $link
+
+      - name: Download hakuneko to Desktop
+        shell: pwsh
+        run: |
+          $desktop = [Environment]::GetFolderPath('Desktop')
+          Invoke-WebRequest -Uri "https://github.com/manga-download/hakuneko/releases/download/v6.1.7/hakuneko-desktop_6.1.7_windows-setup_amd64.exe" -OutFile "$desktop\hakuneko-desktop_6.1.7_windows-setup_amd64.exe"
+
+      - name: Download ZenDownloader to Desktop
+        shell: pwsh
+        run: |
+          $desktop = [Environment]::GetFolderPath('Desktop')
+          Invoke-WebRequest -Uri "https://github.com/NobilityDeviant/ZenDownloader/releases/download/1.2.7/ZenDownloader-windows-amd64.zip" -OutFile "$desktop\ZenDownloader.zip"
+
+      - name: Download rustdesk to Desktop
+        shell: pwsh
+        run: |
+          $desktop = [Environment]::GetFolderPath('Desktop')
+          Invoke-WebRequest -Uri "https://github.com/rustdesk/rustdesk/releases/download/1.5.3/rustdesk-1.5.3-x86_64.exe" -OutFile "$desktop\rustdesk.exe"
+
+      - name: Keep runner alive for 4 hours
+        run: |
+          echo "Sleeping for 4 hours to keep session active..."
+          Start-Sleep -Seconds 14400
